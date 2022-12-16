@@ -8,8 +8,11 @@ class App {
   }
 
   play() {
-    this.#game.playLotto();
+    this.#game.playGame();
   }
 }
+
+const app = new App();
+app.play();
 
 module.exports = App;

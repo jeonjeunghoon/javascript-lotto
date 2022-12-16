@@ -1,79 +1,86 @@
-const GameInput = require('../views/GameInput');
-const GameOutput = require('../views/GameOutput');
-const PlayerService = require('../services/PlayerService');
-const Player = require('../models/Player');
-const PrintableLottos = require('../services/PrintableLottos');
-const LottoService = require('../services/LottoService');
-const Lotto = require('../models/Lotto');
-const SixNumbersService = require('../services/SixNumbersService');
-const SixNumbers = require('../models/SixNumbers');
-const BonusService = require('../services/BonusService');
-const Bonus = require('../models/Bonus');
-const Console = require('../utils/Console');
-const ProfitCalculator = require('../services/ProfitCalculator');
+const OutputView = require('../views/OutputView');
+const InputView = require('../views/InputView');
+const validator = require('../utils/validator');
+const convertor = require('../utils/convertor');
+const UserLottos = require('../models/UserLottos');
+const Lottery = require('../models/Lottery');
+const Lotto = require('../Lotto');
 
 class Game {
-  #instance = {};
+  #instance = {
+    userLottos: null,
+    lotto: null,
+    lottery: null,
+  };
 
-  playLotto() {
-    GameInput.enter(GameOutput.message.purchaseAmount, this.#purchaseLotto.bind(this));
+  constructor() {
+    this.#initInstance();
   }
 
-  #purchaseLotto(purchaseAmount) {
-    this.#instance.player = new Player(PlayerService.purchaseLotto(purchaseAmount));
-
-    this.#printPurchaseResult();
+  #initInstance() {
+    this.#instance = {
+      userLottos: new UserLottos(),
+      lotto: null,
+      lottery: new Lottery(),
+    };
   }
 
-  #printPurchaseResult() {
-    GameOutput.printLottos({
-      quantity: this.#instance.player.getPlayersLottos().quantity,
-      lottos: PrintableLottos.convert(this.#instance.player.getPlayersLottos().lottos),
-    });
-
-    GameInput.enter(GameOutput.message.sixNumbers, this.#registerSixNumbers.bind(this));
+  playGame() {
+    InputView.readPrice(this.#purchaseLotto.bind(this));
   }
 
-  #registerSixNumbers(sixNumbers) {
-    this.#instance.sixNumbers = new SixNumbers(SixNumbersService.setSixNumbers(sixNumbers));
+  #purchaseLotto(userInput) {
+    this.#instance.userLottos.set(userInput);
+    OutputView.printPurchasedLottos(this.#instance.userLottos.get());
 
-    GameInput.enter(GameOutput.message.bonus, this.#registerBonus.bind(this));
+    this.#setLuckyNumbers();
   }
 
-  #registerBonus(rowDataOfBonus) {
-    this.#instance.bonus = new Bonus(
-      BonusService.setBonus(rowDataOfBonus, this.#instance.sixNumbers.getSixNumbers())
+  #setLuckyNumbers() {
+    InputView.readLuckyNumbers(this.#registerLuckyNumbers.bind(this));
+  }
+
+  #registerLuckyNumbers(numbers) {
+    this.#instance.lotto = new Lotto(numbers);
+
+    InputView.readBonusNumber(this.#registerBonusNumber.bind(this));
+  }
+
+  #registerBonusNumber(number) {
+    const bonus = convertor.convertStringToNumber(number);
+    this.#validateBonus(bonus);
+
+    this.#matchLottoNumbers(bonus);
+  }
+
+  #validateBonus(bonus) {
+    validator.checkTruthy(bonus);
+    validator.checkType(bonus, typeof 0);
+    validator.checkNumberRange(bonus);
+    validator.checkDuplication(bonus, this.#instance.lotto.get());
+  }
+
+  #matchLottoNumbers(bonus) {
+    this.#instance.lottery.draw(
+      this.#instance.lotto.get(),
+      bonus,
+      this.#instance.userLottos.get()
     );
 
-    this.#calculateLottoResult();
+    this.#calculateProfit();
   }
 
-  #calculateLottoResult() {
-    this.#instance.lotto = new Lotto(this.#instance.sixNumbers.getSixNumbers());
-    const result = LottoService.calculateGradeResult({
-      lottos: this.#instance.player.getPlayersLottos().lottos,
-      bonus: this.#instance.bonus.getBonus(),
-      numbers: this.#instance.sixNumbers.getSixNumbers(),
-    });
-
-    this.#printResult(result);
-  }
-
-  #printResult(result) {
-    const profit = ProfitCalculator.calculate({
-      result,
-      purchaseAmount: this.#instance.player.getPlayersLottos().purchaseAmount,
-    });
-    GameOutput.printResult({
-      result,
-      profit,
-    });
+  #calculateProfit() {
+    this.#instance.lottery.calculateProfitRate(
+      this.#instance.userLottos.get().length
+    );
 
     this.#endGame();
   }
 
   #endGame() {
-    Console.close();
+    OutputView.printResult(this.#instance.lottery.get());
+    InputView.close();
   }
 }
 

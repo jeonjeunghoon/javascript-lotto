@@ -1,9 +1,9 @@
 const MissionUtils = require('@woowacourse/mission-utils');
 
-class Random {
-  static pickUniqueNumbersInRange(startInclusive, endInclusive, count) {
-    return MissionUtils.Random.pickUniqueNumbersInRange(startInclusive, endInclusive, count);
-  }
-}
+const random = {
+  pickUniqueNumbersInRange(start, end, count) {
+    return MissionUtils.Random.pickUniqueNumbersInRange(start, end, count);
+  },
+};
 
-module.exports = Random;
+module.exports = random;
